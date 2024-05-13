@@ -1,0 +1,54 @@
+services:
+  database:
+    build:
+      context: ./database
+    image: database
+    networks:
+      - my-network
+
+  flask-service:
+    build:
+      context: ./flask
+    image: flask-service
+    ports:
+      - "5000"
+    networks:
+      - my-network
+    labels:
+      - "traefik.priority=10"
+      - "traefik.http.routers.flask.rule=Host(`localhost`)"
+    depends_on:
+      - database
+
+  express-service:
+    build:
+      context: ./express
+    image: express-service
+    ports:
+      - "3000"
+    networks:
+      - my-network
+    labels:
+      - "traefik.priority=1"
+      - "traefik.http.routers.express.rule=Host(`localhost`) && Path(`/addCar`)"
+    depends_on:
+      - database
+    restart: on-failure
+
+  traefik:
+    image: traefik:v2.2
+    command: --api.insecure=true --providers.docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "8080:8080"
+    networks:
+      - my-network
+    depends_on:
+      - flask-service
+      - express-service
+
+networks:
+  my-network:
+    driver: bridge
